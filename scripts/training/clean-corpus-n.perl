@@ -46,32 +46,45 @@ if (scalar(@ARGV) > 6) {
 	open(LINES_RETAINED,">$linesRetainedFile") or die "Can't write $linesRetainedFile";
 }
 
-print STDERR "clean-corpus.perl: processing $corpus.$l1 & .$l2 to $out, cutoff $min-$max, ratio $ratio\n";
+print STDERR "clean-corpus.perl: processing $corpus.tok.$l1 & .$l2 to $out, cutoff $min-$max, ratio $ratio\n";
 
 my $opn = undef;
-my $l1input = "$corpus.$l1";
+my $opnR = undef;
+my $l1input = "$corpus.tok.$l1";
+my $l1inputR = "$corpus.raw.$l1";
 if (-e $l1input) {
   $opn = $l1input;
+  $opnR = $l1inputR;
 } elsif (-e $l1input.".gz") {
   $opn = "gunzip -c $l1input.gz |";
+  $opnR = "gunzip -c $l1inputR.gz |";
 } else {
     die "Error: $l1input does not exist";
 }
 open(F,$opn) or die "Can't open '$opn'";
+open(FR,$opnR) or die "Can't open '$opnR'";
 $opn = undef;
-my $l2input = "$corpus.$l2";
+$opnR = undef;
+my $l2input = "$corpus.tok.$l2";
+my $l2inputR = "$corpus.raw.$l2";
 if (-e $l2input) {
   $opn = $l2input;
+  $opnR = $l2inputR;
 } elsif (-e $l2input.".gz") {
   $opn = "gunzip -c $l2input.gz |";
+  $opnR = "gunzip -c $l2inputR.gz |";
 } else  {
  die "Error: $l2input does not exist";
 }
 
 open(E,$opn) or die "Can't open '$opn'";
+open(ER,$opnR) or die "Can't open '$opnR'";
 
 open(FO,">$out.$l1") or die "Can't write $out.$l1";
 open(EO,">$out.$l2") or die "Can't write $out.$l2";
+
+open(FOR,">$out.$l1.raw") or die "Can't write $out.$l1.raw";
+open(EOR,">$out.$l2.raw") or die "Can't write $out.$l2.raw";
 
 # necessary for proper lowercasing
 my $binmode;
@@ -82,18 +95,24 @@ if ($enc eq "utf8") {
 }
 binmode(F, $binmode);
 binmode(E, $binmode);
+binmode(FR, $binmode);
+binmode(ER, $binmode);
 binmode(FO, $binmode);
 binmode(EO, $binmode);
+binmode(FOR, $binmode);
+binmode(EOR, $binmode);
 
 my $innr = 0;
 my $outnr = 0;
 my $factored_flag;
 while(my $f = <F>) {
+  my $fR = <FR>;
   $innr++;
   print STDERR "." if $innr % 10000 == 0;
   print STDERR "($innr)" if $innr % 100000 == 0;
   my $e = <E>;
-  die "$corpus.$l2 is too short!" if !defined $e;
+  my $eR = <ER>;
+  die "$corpus.tok.$l2 is too short!" if !defined $e;
   chomp($e);
   chomp($f);
   if ($innr == 1) {
@@ -131,14 +150,16 @@ while(my $f = <F>) {
   next if $f =~ /[^\s\|]{$max_word_length_plus_one}/;
 
   # An extra check: none of the factors can be blank!
-  die "There is a blank factor in $corpus.$l1 on line $innr: $f"
+  die "There is a blank factor in $corpus.tok.$l1 on line $innr: $f"
     if $f =~ /[ \|]\|/;
-  die "There is a blank factor in $corpus.$l2 on line $innr: $e"
+  die "There is a blank factor in $corpus.tok.$l2 on line $innr: $e"
     if $e =~ /[ \|]\|/;
 
   $outnr++;
   print FO $f."\n";
   print EO $e."\n";
+  print FOR $fR;
+  print EOR $eR;
 
   if ($linesRetainedFile ne "") {
 	print LINES_RETAINED $innr."\n";
@@ -151,7 +172,7 @@ if ($linesRetainedFile ne "") {
 
 print STDERR "\n";
 my $e = <E>;
-die "$corpus.$l2 is too long!" if defined $e;
+die "$corpus.tok.$l2 is too long!" if defined $e;
 
 print STDERR "Input sentences: $innr  Output sentences:  $outnr\n";
 
